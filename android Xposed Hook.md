@@ -27,15 +27,61 @@ Xposed框架是一款开源java层的HOOK框架,可以hook java层任意方法,�
 
 创建.XposedMain类实现IXposedHookLoadPackage方法
 ```markdown
-
 class XposedMain implements IXposedHookLoadPackage {
+    protected  Object myContext;
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
 
         //xPosed Hook
-        //包：om.bluelesson.helloapp//.MainActivity
-        //类：om.bluelesson.helloappin.MainActivity$-1
+        //包：com/bluelesson/helloapp    //入口类MainActivity
+        //类：com/bluelesson/helloapp/MainActivity$1   //内部匿名类
         //函数： public void onClick(View paramAnonymousView)
+
+        //
+        Class cls  = XposedHelpers.findClass("om.bluelesson.helloappin.MainActivity",loadPackageParam.classLoader);
+
+        //Hook构造方法没有参数，获取实例
+        XposedHelpers.findAndHookConstructor(cls, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                super.beforeHookedMethod(param);
+
+            }
+
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                super.afterHookedMethod(param);
+                myContext =  param.thisObject;
+            }
+        });
+
+        //获取内部匿名类的方法
+        Class cls01 = XposedHelpers.findClass("com/bluelesson/helloapp/MainActivity$1",loadPackageParam.classLoader);
+
+        //Hook 匿名内部类的 onclick方法
+        XposedHelpers.findAndHookConstructor(cls01,"onClick", View.class, new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                super.beforeHookedMethod(param);
+            }
+
+            @Override
+            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                super.afterHookedMethod(param);
+                Toast.makeText((Context) myContext,"这是hook之后的内容",Toast.LENGTH_SHORT).show();
+
+                param.setResult(null);
+            }
+        });
+
+
+
+
+
+
+
+      /*  class clz = XposedHelpers.findClass("",);
+        XposedHelpers.findAndHookConstructor()*/
     }
 }
 ```
