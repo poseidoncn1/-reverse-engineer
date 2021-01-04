@@ -24,6 +24,7 @@ Xposed框架是一款开源java层的HOOK框架,可以hook java层任意方法,�
 
 
 ### 使用Xposed
+使用Xposed Hook 实现获取对象实例,截取调用方法
 
 创建.XposedMain类实现IXposedHookLoadPackage方法
 ```markdown
