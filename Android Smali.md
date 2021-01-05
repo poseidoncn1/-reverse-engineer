@@ -3,6 +3,7 @@
 ## smali 基础语法
 
 ### 基本数据类型
+```markdown
   boolean Z
   byte  B
   short S
@@ -11,26 +12,30 @@
   long  J
   float F
   void  V
-  
+```
 ### 引用类型
-  -对象
+  - 对象
   Lpackagename/ObjectName;
-  -数组
+  - 数组
+  ```markdown
   [I  一维数组
   [[I 二维数组
-  
+  ```
 ### 字段
 对象类型描述符->字段名:类型描述符
+```markdown
 Lpackagename/ObjectName;->myName:Lpackagename/String;
-
+```
 ### 方法描述
+```markdown
 Lpackagename/ObjectName;->myFun(II[CI)V          ->void myFun(int,int,char [],int)  类packagename.ObjectName
 
-
+```
 ### 局部变量
-.registers 指定方法中寄存器的数目
-.locals 表面方法非参寄存器的数目  
+- .registers 指定方法中寄存器的数目
+- .locals 表面方法非参寄存器的数目  
 
+```markdown
 寄存器传递参数默认规则如下：
 1、当一个方法被调用的时候，方法的参数被置于最后N个寄存器中。如果一个方法有2个参数，5个寄存器(v0-v4),那么参数将置于最后2个寄存器 v3-v4
 2、非静态方法中第一个参数总是调用该方法对象 
@@ -47,4 +52,4 @@ Lpackagename/ObjectName;->myFun(II[CI)V          ->void myFun(int,int,char [],in
      V命名方式 v0 v1 v2 v3 v4
      P命名方式 v0 v1 p0 p1 p2
                    this 参数 参数
- 
+ ```
