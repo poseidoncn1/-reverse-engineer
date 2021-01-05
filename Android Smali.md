@@ -52,4 +52,9 @@ Lpackagename/ObjectName;->myFun(II[CI)V          ->void myFun(int,int,char [],in
      V命名方式 v0 v1 v2 v3 v4
      P命名方式 v0 v1 p0 p1 p2
                    this 参数 参数
+                   
+                   
+ 
  ```
+ 
+ 注意事项：J(long) or D(double) 需要2个寄存器   add-long/2add v2,p2 //v2=v2+p2  v3=v3+p3
