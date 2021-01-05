@@ -30,3 +30,6 @@ java -jar smali.jar a out -o class.dex
  java -jar signapk.jar testkey.x509.pem testkey.pk8 update.apk update_sined.apk
   
  ```
+### android reverse tool other
+
+dex2jar jd-gui jeb jadx GDA 
