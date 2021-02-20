@@ -2,6 +2,16 @@ https://blog.csdn.net/qiming_zhang/article/details/7309909#3.2.4
 
 ### PE文件格式
 DOS头 0x5A4D;NT 头 0x00004550;Section;
+### 加载PE文件  or 实现 LoadLibrary dll
+```
+1.判断是否是PE文件 or dll文件
+2.将各个section内存对齐加载到内存中
+3.修复重定位
+4.初始化堆栈
+5.填充IAT
+6.执行tls回调函数，执行pe文件
+
+```
 
 ### NT头中 文件头  可选头
 
