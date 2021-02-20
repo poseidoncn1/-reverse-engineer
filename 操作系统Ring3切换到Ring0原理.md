@@ -6,7 +6,7 @@ new： cpu提供 sysenter/sysexit
  
  ### Ring3切换到Ring0 切换过程
  
- - 保存调用号到 eax寄存器   保存栈顶(esp)到 edx寄存器
+ - 保存调用号到 eax寄存器   保存栈顶(esp)到 edx寄存器(Ring3)
  
  - cpu获取 内核寄存器环境
  ```
