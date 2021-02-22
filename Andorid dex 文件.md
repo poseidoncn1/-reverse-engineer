@@ -1,5 +1,5 @@
 ### 最简单的dex文件
--生成 dex文件
+- 生成 dex文件
 java -jar smali.jar -o class.dex HelloWorld.smali
 - 连接安卓设备
 adb devices
@@ -23,10 +23,28 @@ adb shell dalvikvm -cp /data/local/HelloWorld.zip HelloWorld
 ```
 dex 文件 or pe文件数据格式都是小端方式保存；网络传输都是大端方式传输，使用小端主要原因是为了保存数据类型
 ```
+   - 各种表的大小以及偏移
+      - string_ids_size 和string_ids_off,字符串表的大小和偏移
+      - type_ids_size和 type_ids_off 类型表的大小和偏移
+      - proto_ids_size 和proto_ids_off 原型表的大小和偏移
+      - field_ids_size 和field_ids_off，字段表的大小和偏移
+      - method_ids_size和method_ids_off 方法表的大小和偏移
+      - class_defs_size 和 class_defs_off 类数据的大小和偏移
 - 各种数据的数组，包括字符串、类型、方法原型、字段、方法
 ```
 dex 文件，例如，名称等字符串，用数组的方式保存到一起，使用的时候使用数组的索引。
 ```
+   - 字符串表dex_string_ids
+      ```
+      字符串表项，是一个字符串数据的偏移string_data_off，偏移指向的是一个string_data 结构。
+      ```
+      string_data 结构中有两个字段：
+      - 字段1：代表长度，数据类型是uleb128,变长的数据类型(1-5字节)
+      - 字段2：存储数据，字符串以0结尾
+   - 类型表dex_type_ids
+     ```
+     类型数组中，存放的是字符串表数组下标。
+     ```
 
 - 类数据
 - 其它
