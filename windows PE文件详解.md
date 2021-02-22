@@ -2,6 +2,8 @@ https://blog.csdn.net/qiming_zhang/article/details/7309909#3.2.4
 
 ### PE文件格式
 DOS头 0x5A4D;NT 头 0x00004550;Section;
+### PE 文件后缀
+ocx com sys exe dll
 ### 加载PE文件  or 实现 LoadLibrary dll
 ```
 1.判断是否是PE文件 or dll文件
