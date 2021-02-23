@@ -205,6 +205,17 @@
   结果就是一个整型数据：4字节
   ```
 
+- 修改dex文件完成，破解实战
+
+  ```
+  1、使用ida，打开dex文件，找到export导出函数列表
+  2、破解方法：反汇编smali代码 重新打包 or HOOK or 直接分析程序找到密码 or 更改指令(dex文件)
+  3、通过jadx-gui 找到关键函数 CheckRegister，在ida中 export中找到函数，找到关键位置 return 00
+  4、在ida中 Hex View 中，找到 return 0 对应的Hex 指令。在指令搜索指令的意思(dalvik操作码文档) or 在本hex 中找到合适的指令
+  5、ida中Hex view中，按F2进入编辑状态，修改完毕后，按f2 保存。ida中保存在数据库中
+  6、010editor中修改，偏移就是在ida中，选中return 0 这一行，ctrl+c 复制出来偏移，在010editor中ctrl+g,找到并修改指令
+  ```
+
   ​
 
 ### 010editor分析dex结构
