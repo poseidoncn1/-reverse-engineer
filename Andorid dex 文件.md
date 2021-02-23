@@ -1,299 +1,374 @@
-### 最简单的dex文件
-- 生成 dex文件
-  java -jar smali.jar -o class.dex HelloWorld.smali  /  zip HelloWorld.zip classes.dex
-- 连接安卓设备
-  adb devices
-- 上传压缩文件
-  adb push Helloworld.zip /data/local
-- 启动并设置入口类,安卓手机执行的出来
-  adb shell dalvikvm -cp /data/local/HelloWorld.zip HelloWorld
+### java层hook框架
 
-### dex文件分为三大块
-- dex文件头
-  - 字段1 dex_magic ,表示dex文件的文件表示，特征字符串
-  - 字段2 checksum，表示校验和，对文件求32位的hash值(从字段3到文件末尾)
-  - 字段3 signature[] ,表示SHA1，对文件求hash值(从字段4到文件末尾)
-  - 字段4 file_size,表示文件大小
-  ```
-  字段2和字段3 就是确保dex 完整。改变dex，需更新这两个字段
-  ```
-  - 字段5 dex文件头大小
+```
+hook 的本质是在某一个点拦截，做完我要做的事情，回到正确的轨道上继续运行
+```
 
-  - 字段6: 数据排列方式-小端方式
+
+
+### Cydia Substrate  Apple->android 闭源
+
+```
+真机运行，必须root，ARM体系下，安装。
+```
+
+- 安装com.saurik.substrate 0.9.4010
+
+- 编写Cydia Substrate 插件
+
+  - 导入substrate-api.jar
 
     ```
-    dex 文件 or pe文件数据格式都是小端方式保存；网络传输都是大端方式传输，使用小端主要原因是为了保存数据类型
+    1、在app上右键，找到 打开模块设置(open Module Setting)
+    2、选择 Dependencies项
+        导入substrate-api.jar包
+        implement
+    ```
+
+  - 设置权限和入口
+
+    ```
+    1、需要指的权限：cydia.permission.SUBSTRATE
+    2、添加meta标签，name为cydia.permission.SUBSTRATE，value为下一步中创建的类名.Main
+    <manifest xmlns:android="http">
+    <application>
+    <meta-data android:name="com.saurik.substrate.main" android:value=".Main"/>
+    </application>
+    <uses-permission android:name="cydia.permission.SUBSTRATE"/>
+    </mainfest>
+
     ```
 
     ​
 
-  - 各种表的大小以及偏移
+  - 新建一个类,实现回调函数
 
-    - string_ids_size 和string_ids_off,字符串表的大小和偏移
-    - type_ids_size和 type_ids_off 类型表的大小和偏移
-    - proto_ids_size 和proto_ids_off 原型表的大小和偏移
-    - field_ids_size 和field_ids_off，字段表的大小和偏移
-    - method_ids_size和method_ids_off 方法表的大小和偏移
-    - class_defs_size 和 class_defs_off 类数据的大小和偏移
+    ```
+    1、新建类Main
+    2、实现static void initialize()方法
 
+    public class Main {
+        static void initialize(){
+            // ...插件加载时，指向代码
+            //1.hook 类
+            //包名：
+            //类名 android.content.res.Resources;
+            //方法原型：public int getColor(int id)
+            
+            MS.hookClassLoad(类名，new MS.ClassLoadHook(){
+                //2.hook 指的方法
+            }
+            ，old)；
+        
+            
+            
+            
+        }
+    }
+    ```
 
+    ​
 
-   - 各种数据的数组，包括字符串、类型、方法原型、字段、方法
+  - Hook 加载类
+    使用MS.hookClassLoad
 
-      ```
-      dex 文件，例如，名称等字符串，用数组的方式保存到一起，使用的时候使用数组的索引。
-      ```
+    ```
+    MS.hookClassLoad("android.content.res.Resources",new MS.ClassLoadHook(){
+        public void classLoaded(Class<?> resources) {
+            //...当类加载时执行
+            Method getColor=null;
+            try {
+            //获取老的方法
+            //java 反射机制，在运行的时，使用类类型获取类的方法、字段等信息
+               // getColor = resources.getMethod("getColor",Integer.TYPE);
+               getColor = resources.getMethod("getColor",int.class);
+               
+                
+            } catch {
+            log.d("log","something is wrong");
+            
+            }
+            if(getColor !=null) {
+                //老的方法指针(函数指针)，
+                final MS.MethodPointer old = new MS.MethodPointer();
+                MS.hookMethod(resources,getColor,new MS.MethodHook(){
+                     //public Object invoked(老的方法，参数)
+                    public Object invoked(Object resoures,Object ... args) throws Throwable{
+                        //hook代码
+                        
+                        //1、调用老的方法(老函数)
+                            // int color =(Integer)old.invoke(resources,args);
+                            int color =(int)old.invoke(resources,args);
+                        //2、更改返回值，返回
+                        return color &~0x0000ff00 | 0x00ff0000;
+                   
+                },old);//old在这里返回
+            }
+        }
+    }
+    );
+    ```
 
-      ​
+    ​
 
-      - 字符串表dex_string_ids
+  - Hook方法
+    使用MS.hookMethod
 
-      ```
-      字符串表项，是一个字符串数据的偏移string_data_off，偏移指向的是一个string_data 结构。
-      ```
-      ​
+    ```
+    hook老的方法：
+    void hookMethod(Class,Method,MethodHook<Object,Object>,MethodPointer<Object,Object>)
 
-      string_data 结构中有两个字段：
+    替换老的方法：
+    void hookMethod(Class,Method,MethodAlteration<Object,Object>)
+    ```
 
-      - ​
-        - 字段1：代表长度，数据类型是uleb128,变长的数据类型(1-5字节)
-        - 字段2：存储数据，字符串以0结尾
-      - 类型表dex_type_ids
+    ​
 
-      ```
-      类型表表项，是一个索引值，存放的是字符串表数组下标。
-      类型描述符包括基本数据类型的描述符和类类型的描述符。
-      LHelloworld;是HelloWorld类的类描述符。
+- 关键函数
 
-      ```
-      - 原型表 （方法原型）
+  - MS.hookClassLoad
 
-        ```
-        原型表项存储的是函数原型的各部分描述信息。包括短类型(shorty_idx)、返回类型(return_type_idx)、参数的类型(parameters_off) 最终还是一个指向字符串表的数组下标
-        注：字段为返回类型(return_type_idx)的值，是类型表中的索引，无双引号；短类型是字符串，有双引号，是字符串的索引
-        ```
+    ```
+    参数1：包名+类名
+    参数2：(匿名类对象,实现接口)MS.ClassLoadHook的一个实例，当这个类被加载的时候，它的classLoaded方法会被指向
+    hookClassLoad(String name,MS.ClassLoadHook hook);
+    ```
 
-        ​
+    ​
 
-      - 字段表（类成员）
+  - MS.hookMethod
 
-        ```
-        字段表项中内容存储的是字段的信息。包括字段所在类(class_idx)、字段的类型(type_idx)、字段的名称(name_idx),class_idx是类型表中的索引，type_idx是类型表中的索引，字段名称的索引是字符串表的数组下标
-        ```
+    ```
+    参数1：加载的目标类，为classLoaded传下来的类参数
+    参数2：需要hook的方法
+    参数3：((匿名类对象,实现接口))MS.MethodHook的一个实例，其包含的invoked方法会被调用，以代替member中的代码
+    参数4：老的函数指针，可以为空
+    hookMethod(Class _class,Member member,MS.MethodHook hook,MS.MethodPointer old)
+    ```
 
-        ​
-
-      ​
-
-      - 方法表（类方法）
-
-        ```
-        方法表项存储的是方法的信息，包括方法所在的类(class_idx)、方法的原型(proto_idx)、方法的名称(name_idx),其中class_idx是类型表中的索引,proto_idx是原型表的索引，方法名称是字符床表数组的下标
-        ```
-
-        ​
-
-      ​
-
-   - ​
-
-- 类数据
-
-     ```
-     类数据也是一个数组，每一个元素就是一个类的相关信息。
-     ```
-
-     - 不重要的信息
-
-       ```
-       所在的类class_idx,父类superclass_idx,接口 interface_off,访问权限access_flags
-       类名索引，访问flags，父类索引，接口偏移，源码索引，注解偏移，类数据偏移
-       ```
-
-     - 数据保存在，class_data
-
-       ```
-       这个结构存放fields字段和method方法
-       对我们重要的是类方法查找：
-       class_data->encoded_method method->code_item code
-       ->insns_size 指令长度 
-         insns[]  指令
-       ```
-
-       ```
-       简单分析一些指令转smali代码：需要查dalvik操作码
-       1、6200 0000 -> sget-object v0,field[0]  //字段表索引0
-       sget-object v0,out
-       名称：out
-       类型：java.io.PrintStream
-       所在类：java.lang.System
-
-       smali: sget-object v0,Ljava/lang/System;->out:Ljava.io.PrintStream;
-       2、1A01 0000 const-string v1,string[0]  //字符串表索引0
-       const-string v1,“Hello world”
-
-       3、6E53 0600 0421  - invoke-virtual {v4,v0,v1,v2,v3},Test2.method5:(IIII)V;
-
-       ```
-
-       ​
-
-     - ​
-
-     ​
-
-     ​
-
-- 其它
-
-     ```
-     http://androidxref.com 安卓源码下载
-     ```
+    ​
 
 
 
 
 
+## Xposed Hook  android->Apple 开源 
+
+```
+
+```
 
 
-### uleb128数据类型
 
-- 特点：变长（1-5字节），每一个字节最高位表示标志位，可以理解为是否下一字节有效数据
+#### 安装Xposed
 
-- 范围：整型，最大表示一个32位的无符号数据
+- 将XposedBridge-82.jar文件copy到android stadio 项目中project->app->lib目录下，并设置lib\XposedBridge-82.jar (provided 仅编译)  or 在build.gradle文件中 dependencies->添加 provided files('lib\\XposedBridge-82.jar')
+
+- 安装android.xposed.installer  安装:adb install de.robv.android.xposed.installer...apk
 
   ```
-  整型数据 
-  16进制 0x180 
-  二进制：0000 0001 1000 0000->01 80
-  小端方式二进制：1000 0000 0000 0001->80 01
-  uleb128:1000 0000 0000 0011 ->80 03
-
-  源码：
-
-  DEX_INLINE int readUnsignedLeb128(const u1** pStream) {
-      const u1* ptr = *pStream;
-      int result = *(ptr++);
-   
-      if (result > 0x7f) {
-          int cur = *(ptr++);
-          result = (result & 0x7f) | ((cur & 0x7f) << 7);//第一个字节留7位，第二个字节留7位
-                                                         //字节2会左移7位，与第一字节做 或操作
-                                                         //举例  uleb128 1000 0000 0000 0011
-                                                         //&0x7f 0000 0000 0000 0011
-                                                         //A|(B<<7) 0000 0000 |(0000 0011<<7)
-                                                         //         0000 0000 |1 1000 0000
-                                                         //= 1 1000 0000=0x180
-          if (cur > 0x7f) {
-              cur = *(ptr++);
-              result |= (cur & 0x7f) << 14;             //第3个字节，左移14位
-              if (cur > 0x7f) {
-                  cur = *(ptr++);
-                  result |= (cur & 0x7f) << 21;         //第4个字节，左移21位
-                  if (cur > 0x7f) {
-                      cur = *(ptr++);
-                      result |= cur << 28;              //第5个字节，左移28位
-                  }
-              }
-          }
-      }
-   
-      *pStream = ptr;
-      return result;
-  }
-
-  结果就是一个整型数据：4字节
+  /system可写入
+  正在复制app_process（app启动进程）-> 对这个进程进行hook修改，完成注入，加载插件等操作
   ```
 
-- 修改dex文件完成，破解实战
+  ​
+
+-  创建project->app->src->assets目录下，文件xposed_init(内容Xposed入口类) 默认使用 [com.example.lenovo.services.XposedMain]
+
+-  AndroidMinfest.xml文件设置
+
+```markdown
+        <!--        使xposed模块有效 -->
+        <meta-data android:name="xposedmodule" android:value="true"></meta-data>
+        <!--        Xposed框架中模块列表显示的名字 -->
+        <meta-data android:name="xposeddescription" android:value="xposedhook"></meta-data>
+        <!--       Xposed框架支持的最低版本 -->
+        <meta-data android:name="xposedminversion" android:value="54"></meta-data>
+```
+
+#### 实现插件
+
+- 插件一个空Activity的工程
 
   ```
-  1、使用ida，打开dex文件，找到export导出函数列表
-  2、破解方法：反汇编smali代码 重新打包 or HOOK or 直接分析程序找到密码 or 更改指令(dex文件)
-  3、通过jadx-gui 找到关键函数 CheckRegister，在ida中 export中找到函数，找到关键位置 return 00
-  4、在ida中 Hex View 中，找到 return 0 对应的Hex 指令。在指令搜索指令的意思(dalvik操作码文档) or 在本hex 中找到合适的指令
-  5、ida中Hex view中，按F2进入编辑状态，修改完毕后，按f2 保存。ida中保存在数据库中
-  6、010editor中修改，偏移就是在ida中，选中return 0 这一行，ctrl+c 复制出来偏移，在010editor中ctrl+g,找到并修改指令
-
-
-  安装测试：
-  1、改完，将META-INF签名文件夹删除，打包文件夹res、AndroidMainfest.xml、classes.dex、resources.arsc，打包成update.apk
-  2、到签名工具sign.bat（java -jar signapk.jar testkey.x509.pen testkey.pk8 update.apk update_signed.apk）签名，update_signed.apk
-  3、adb install update_signed.apk,安装报错[install_failed_dexopt],需要修复dex文件，java -jar DexRepairTools.jar 工具修复
-  4、再次安装，报错[install_failed_dexopt],已经安装过了依次，需要卸载再安装，
-  adb shell->cd /data/app->ls -la
-  cd /data/data->ls -la->rm -r [dirName]
-
-  DexRepairTools.jar 
-  1、读取dex文件
-  2、修复sha-1值
-  3、计算checksum值，修复
-  源码：
-
-    public static void patchDexHeader(byte[] newDexFile) {
-          // 1. 修正 siganature
-          byte[] siganature = getDexFileSiganature(newDexFile);
-          System.arraycopy(siganature, 0, newDexFile, 8+4, 20);//修改sha-1值（12-31）
-
-          // 2. 修正 checksum
-          byte[] checksums = getDexFileCheckSum(newDexFile);
-          System.arraycopy(checksums, 0, newDexFile, 8, 4);//效验码赋值（8-11）
-      }
-      // 获取CheckSum
-      private static byte[] getDexFileCheckSum(byte[] newDexFile) {
-          // 创建Adler32对象
-          Adler32 adler = new Adler32();
-          // 计算缓冲区校验和
-          adler.update(newDexFile, 12, newDexFile.length - 12);//从12到文件末尾计算校验码
-          // 获取值
-          long value = adler.getValue();
-          int data = (int)value;
-          // 将整型转为数组
-          byte[] checksums = new byte[4];
-          for (int i = 0; i < 4; i++) {
-              checksums[i] = (byte) (data % 256);
-              data >>= 8;
-          }
-          return  checksums;
-      }
-
-      // int转Byte
-      private static byte[] intToByte(int length) {
-          byte[] bytes = new byte[4];
-          for (int i = 0; i < 4; i++) {
-              bytes[i] = (byte) (length % 256);
-              length >>= 8;
-          }
-          return bytes;
-      }
-
-      // 获取sha签名
-      private static byte[] getDexFileSiganature(byte[] newDexFile) {
-          try {
-              // 获取SHA-1摘要对象
-              MessageDigest md = MessageDigest.getInstance("SHA-1");
-              int startOffset = 8+4+20;
-              // 计算缓冲区摘要
-              md.update(newDexFile, startOffset, newDexFile.length - startOffset);//从32为到结束计算sha--1
-              // 获取摘要
-              byte[]  siganature = md.digest();
-              // 返回摘要
-              return siganature;
-          } catch (NoSuchAlgorithmException e) {
-              e.printStackTrace();
-          }
-          return null;
-      }
-
-  }
-
 
   ```
 
   ​
 
-### 010editor分析dex结构
-```
-破解基于java。反编译的时候 隐藏代码或者转移代码，dex基本文件格式，如何加载，安卓虚拟机如何运行的
+- 设置清单文件信息
 
+  ````
+    设置清单文件
+   <!--        使xposed模块有效 -->       
+   <meta-data android:name="xposedmodule" android:value="true"></meta-data>        <!--        Xposed框架中模块列表显示的名字 -->      
+   <meta-data android:name="xposeddescription" android:value="xposedhook"></meta-data>        <!--       Xposed框架支持的最低版本 -->      
+   <meta-data android:name="xposedminversion" android:value="54"></meta-data>
+  ````
+
+  ​
+
+- 导入Xposed jar包，并设置为provided(compile only)
+
+- 创建一个主类并实现Xposed中的接口
+
+  ```
+  public class XposedMain implements IXposedHookLoadPackage {
+  }
+  ```
+
+  ​
+
+- 重新handleLoadPackage方法
+
+  ```
+  public class XposedMain implements IXposedHookLoadPackage {
+      protected  Object myContext;
+      @Override
+      public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
+      
+      }
+  ```
+
+  ​
+
+- 建立xposed_init文件外部声明主类
+
+  ```
+   创建project->app->src->assets目录下，创建文件xposed_init(内容Xposed入口类) 默认使用 [com.example.lenovo.services.XposedMain]
+  ```
+
+  ​
+
+- 在HandleLoadPackage中完善hook代码
+
+  ```
+  //hook代码
+  public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
+
+          //xPosed Hook
+          //包：com.bluelesson.helloapp    //入口类MainActivity
+          //类：com.bluelesson.helloapp.MainActivity$1   //内部匿名类
+          //方法： public void onClick(View paramAnonymousView)
+
+          //
+          if(loadPackageParam.packageName.equals("com.bluelesson.helloapp"))
+          {
+          
+          }
+          
+     }
+  ```
+
+  ​
+
+
+
+#### 关键函数
+
+```
+Xposed插件的关键Hook方法
+
+XposedHelpers.findAndHookMethod方法
+所属类：XposedHelpers
+重载：
+findAndHookMethod(类类型，方法名，参数类型，...回调)
+//1、确保这个类可以访问到（系统类）
+findAndHookMethod(TelephonyManager.class,"getDeviceId",new XC_MethodReplacement())
+
+findAndHookMethod(类名，类加载器，参数类型，...回调)
+//1、Hook目标程序的一个类，
+//2、类加载器，所有类都要加载到内存，保证可以调用（类加载器负责加载这些类）
+findAndHookMethod(className,loadPackageParam.classLoader,"CheckRegister
+",String.class,String.class,new XC_MethodHook()...)
+
+
+回调函数：
+   1、XC_MethodReplacement 替换原有的方法
+   需要重写replaceHookedMethod方法
+   Object replaceHookedMethod(MethodHookParam)
+   
+   
+   
+   2、XC_MethodHook  不替换 ，在执行原有的方法之前，在执行原有的方法之后
+   需要重写beforeHookedMethod 与 afterHookedMethod方法
+   void beforeHookedMethod(MethodHookParam param)
+   void afterHookedMethod(MethodHookParam param)
+设置返回值：param.setResult(true);
+   
+```
+
+
+
+
+
+### 使用Xposed
+
+创建.XposedMain类实现IXposedHookLoadPackage方法
+```markdown
+public class XposedMain implements IXposedHookLoadPackage {
+    protected  Object myContext;
+    @Override
+    public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loadPackageParam) throws Throwable {
+
+        //xPosed Hook
+        //包：com.bluelesson.helloapp    //入口类MainActivity
+        //类：com.bluelesson.helloapp.MainActivity$1   //内部匿名类，匿名类从1开始
+        //函数： public void onClick(View paramAnonymousView)
+
+        //
+        if(loadPackageParam.packageName.equals("com.bluelesson.helloapp"))
+        {
+            Class cls  = XposedHelpers.findClass("com.bluelesson.helloapp.MainActivity",loadPackageParam.classLoader);
+
+            //Hook构造方法没有参数，获取实例
+            XposedHelpers.findAndHookConstructor(cls, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    super.beforeHookedMethod(param);
+
+                }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    super.afterHookedMethod(param);
+                    myContext =  param.thisObject;
+                    XposedBridge.log("11");
+                }
+            });
+
+            //获取内部匿名类的方法
+            Class cls01 = XposedHelpers.findClass("com.bluelesson.helloapp.MainActivity$1",loadPackageParam.classLoader);
+
+            //Hook 匿名内部类的 onclick方法
+            XposedHelpers.findAndHookMethod(cls01,"onClick", View.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    super.beforeHookedMethod(param);
+                }
+
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    super.afterHookedMethod(param);
+                    XposedBridge.log("22");
+                    Toast.makeText((Context) myContext,"这是hook之后的内容",Toast.LENGTH_SHORT).show();
+
+                    param.setResult(null);
+                }
+            });
+        }
+
+    }
+}
+
+
+
+
+
+
+
+      /*  class clz = XposedHelpers.findClass("",);
+        XposedHelpers.findAndHookConstructor()*/
+    }
+}
 ```
