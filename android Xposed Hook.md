@@ -1,6 +1,163 @@
-## android Xposed Hook 
+### java层hook框架
 
-Xposed框架是一款开源java层的HOOK框架,可以hook java层任意方法,每次Hook成功后,需要重启设备.本文只记录个人学习过程.
+```
+hook 的本质是在某一个点拦截，做完我要做的事情，回到正确的轨道上继续运行
+```
+
+
+
+### Cydia Substrate  Apple->android 闭源
+
+```
+真机运行，必须root，ARM体系下，安装。
+```
+
+- 安装com.saurik.substrate 0.9.4010
+
+- 编写Cydia Substrate 插件
+
+  - 导入substrate-api.jar
+
+    ```
+    1、在app上右键，找到 打开模块设置(open Module Setting)
+    2、选择 Dependencies项
+        导入substrate-api.jar包
+    ```
+
+  - 设置权限和入口
+
+    ```
+    1、需要指的权限：cydia.permission.SUBSTRATE
+    2、添加meta标签，name为cydia.permission.SUBSTRATE，value为下一步中创建的类名.Main
+    <manifest xmlns:android="http">
+    <application>
+    <meta-data android:name="com.saurik.substrate.main" android:value=".Main"/>
+    </application>
+    <uses-permission android:name="cydia.permission.SUBSTRATE"/>
+    </mainfest>
+
+    ```
+
+    ​
+
+  - 新建一个类,实现回调函数
+
+    ```
+    1、新建类Main
+    2、实现static void initialize()方法
+
+    public class Main {
+        static void initialize(){
+            // ...插件加载时，指向代码
+            //1.hook 类
+            //包名：
+            //类名 android.content.res.Resources;
+            //方法原型：public int getColor(int id)
+            
+            MS.hookClassLoad(类名，new MS.ClassLoadHook(){
+                //2.hook 指的方法
+            }
+            ，old)；
+        
+            
+            
+            
+        }
+    }
+    ```
+
+    ​
+
+  - Hook 加载类
+    使用MS.hookClassLoad
+
+    ```
+    MS.hookClassLoad("android.content.res.Resources",new MS.ClassLoadHook(){
+        public void classLoaded(Class<?> resources) {
+            //...当类加载时执行
+            Method getColor=null;
+            try {
+            //获取老的方法
+            //java 反射机制，在运行的时，使用类类型获取类的方法、字段等信息
+               // getColor = resources.getMethod("getColor",Integer.TYPE);
+               getColor = resources.getMethod("getColor",int.class);
+               
+                
+            } catch {
+            log.d("log","something is wrong");
+            
+            }
+            if(getColor !=null) {
+                //老的方法指针(函数指针)，
+                final MS.MethodPointer old = new MS.MethodPointer();
+                MS.hookMethod(resources,getColor,new MS.MethodHook(){
+                     //public Object invoked(老的方法，参数)
+                    public Object invoked(Object resoures,Object ... args) throws Throwable{
+                        //hook代码
+                        
+                        //1、调用老的方法(老函数)
+                            // int color =(Integer)old.invoke(resources,args);
+                            int color =(int)old.invoke(resources,args);
+                        //2、更改返回值，返回
+                        return color &~0x0000ff00 | 0x00ff0000;
+                   
+                },old);//old在这里返回
+            }
+        }
+    }
+    );
+    ```
+
+    ​
+
+  - Hook方法
+    使用MS.hookMethod
+
+    ```
+    hook老的方法：
+    void hookMethod(Class,Method,MethodHook<Object,Object>,MethodPointer<Object,Object>)
+
+    替换老的方法：
+    void hookMethod(Class,Method,MethodAlteration<Object,Object>)
+    ```
+
+    ​
+
+- 关键函数
+
+  - MS.hookClassLoad
+
+    ```
+    参数1：包名+类名
+    参数2：(匿名类对象,实现接口)MS.ClassLoadHook的一个实例，当这个类被加载的时候，它的classLoaded方法会被指向
+    hookClassLoad(String name,MS.ClassLoadHook hook);
+    ```
+
+    ​
+
+  - MS.hookMethod
+
+    ```
+    参数1：加载的目标类，为classLoaded传下来的类参数
+    参数2：需要hook的方法
+    参数3：((匿名类对象,实现接口))MS.MethodHook的一个实例，其包含的invoked方法会被调用，以代替member中的代码
+    参数4：老的函数指针，可以为空
+    hookMethod(Class _class,Member member,MS.MethodHook hook,MS.MethodPointer old)
+    ```
+
+    ​
+
+
+
+
+
+## Xposed Hook  android->Apple 开源 
+
+```
+
+```
+
+
 
 ### 安装Xposed
 
