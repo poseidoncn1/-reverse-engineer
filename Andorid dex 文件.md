@@ -214,6 +214,80 @@
   4、在ida中 Hex View 中，找到 return 0 对应的Hex 指令。在指令搜索指令的意思(dalvik操作码文档) or 在本hex 中找到合适的指令
   5、ida中Hex view中，按F2进入编辑状态，修改完毕后，按f2 保存。ida中保存在数据库中
   6、010editor中修改，偏移就是在ida中，选中return 0 这一行，ctrl+c 复制出来偏移，在010editor中ctrl+g,找到并修改指令
+
+
+  安装测试：
+  1、改完，将META-INF签名文件夹删除，打包文件夹res、AndroidMainfest.xml、classes.dex、resources.arsc，打包成update.apk
+  2、到签名工具sign.bat（java -jar signapk.jar testkey.x509.pen testkey.pk8 update.apk update_signed.apk）签名，update_signed.apk
+  3、adb install update_signed.apk,安装报错[install_failed_dexopt],需要修复dex文件，java -jar DexRepairTools.jar 工具修复
+  4、再次安装，报错[install_failed_dexopt],已经安装过了依次，需要卸载再安装，
+  adb shell->cd /data/app->ls -la
+  cd /data/data->ls -la->rm -r [dirName]
+
+  DexRepairTools.jar 
+  1、读取dex文件
+  2、修复sha-1值
+  3、计算checksum值，修复
+  源码：
+
+    public static void patchDexHeader(byte[] newDexFile) {
+          // 1. 修正 siganature
+          byte[] siganature = getDexFileSiganature(newDexFile);
+          System.arraycopy(siganature, 0, newDexFile, 8+4, 20);//修改sha-1值（12-31）
+
+          // 2. 修正 checksum
+          byte[] checksums = getDexFileCheckSum(newDexFile);
+          System.arraycopy(checksums, 0, newDexFile, 8, 4);//效验码赋值（8-11）
+      }
+      // 获取CheckSum
+      private static byte[] getDexFileCheckSum(byte[] newDexFile) {
+          // 创建Adler32对象
+          Adler32 adler = new Adler32();
+          // 计算缓冲区校验和
+          adler.update(newDexFile, 12, newDexFile.length - 12);//从12到文件末尾计算校验码
+          // 获取值
+          long value = adler.getValue();
+          int data = (int)value;
+          // 将整型转为数组
+          byte[] checksums = new byte[4];
+          for (int i = 0; i < 4; i++) {
+              checksums[i] = (byte) (data % 256);
+              data >>= 8;
+          }
+          return  checksums;
+      }
+
+      // int转Byte
+      private static byte[] intToByte(int length) {
+          byte[] bytes = new byte[4];
+          for (int i = 0; i < 4; i++) {
+              bytes[i] = (byte) (length % 256);
+              length >>= 8;
+          }
+          return bytes;
+      }
+
+      // 获取sha签名
+      private static byte[] getDexFileSiganature(byte[] newDexFile) {
+          try {
+              // 获取SHA-1摘要对象
+              MessageDigest md = MessageDigest.getInstance("SHA-1");
+              int startOffset = 8+4+20;
+              // 计算缓冲区摘要
+              md.update(newDexFile, startOffset, newDexFile.length - startOffset);//从32为到结束计算sha--1
+              // 获取摘要
+              byte[]  siganature = md.digest();
+              // 返回摘要
+              return siganature;
+          } catch (NoSuchAlgorithmException e) {
+              e.printStackTrace();
+          }
+          return null;
+      }
+
+  }
+
+
   ```
 
   ​
