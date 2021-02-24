@@ -100,6 +100,138 @@ CMake编译脚本：CMakeLists.txt CMake如何将原生源文件编译入库or �
     env->CallVoidMethod(thiz,jmethodId);
     参数1：java层类对象
     参数2：java层方法ID
+    参数3：...args 方法参数
     ```
+
+  - c++文件调用java层 字段
+
+    ```
+    //1.获取java层类类型
+    jclass jclass1 = env->GetObjectClass(thiz);
+    参数1：thiz是java层类对象this
+
+    //2.获取java层字段 ID
+    jfieldID jfieldId = env->GetFieldID(jclass1,"mStr","Ljava/lang/String;");
+    参数1：类类型
+    参数2：字段名
+    参数3：字段类型
+
+    //3.修改字段
+    env->SetObjectField(thiz,jfieldId,env-NewStringUTF("hello"));
+    参数1：类对象
+    参数2：字段ID
+    参数3：java 一个对象
+    ```
+
+  - 动态注册c++函数，即动态关联c++函数和java层方法
+
+    ```
+    在so文件加载时，在JNI_OnLoad方法中注册
+    extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM*vm ，void*reserved){
+    //1.获取
+           JNIEnv *env;
+           jint jret = vm->GetEnv((void**)&env,JNI_VERSION_1_6);
+           if(jret !=JNI_OK){
+               return JNI_ERR;
+           }
+           
+           
+
+    //2.动态注册，绑定
+         //2.1获取类类型
+         jclass jclass1 = env->FindClass("com/example/hellworld/MainActivity");
+         参数1：包名+类名
+         
+         //2.2准备结构体数组
+         const JNINativeMethod method = {"fun1","(Ljava/lang/String;Ljava/lang/String;)V"，
+         （void*）__NativeCFun};
+         参数1：java层函数名 字符串
+         参数2：函数类型
+         参数3：c 函数指针
+         
+         //2.3注册
+         env->RegisterNatives(jclass1,&method,1);
+         注册一个方法
+         参数1：类类型
+         参数2：结构体数组指针
+         参数3：方法个数
+         
+         
+          return JNI_VERSION_1_4;
+
+    }
+    ```
+
+    ​
+
+    ​
+
+  - 关于函数的其它知识
+
+    ```
+    1.JNI函数语言转换方式：
+    c语言（*env）->NewStringUTF(env,"hello");  （这种方式逆向的是会出现）
+    c++  env->NewStringUTF("hello");
+
+    2.有些函数中，*isCopy说明
+    无需关心，传入NULL即可
+
+
+
+    ```
+
+    ```
+    ida插件：AutoSetToLocalAnsiCodePage.plw 解决乱码问题
+
+    .so 文件在ida中打开，到exports中找到c++文件的函数，解析查看c++函数
+    ```
+
+    ```
+    逆向极其重要：
+    .so文件加载时，最早运行的函数是init函数,之后运行初始化数组，这个数组中的函数声明 需要加 __attribute__((constructor)),之后运行JNI_OnLoad
+
+    _init->init1->init3->init2->JNI_OnLoad
+
+
+
+    extern "C" void _init(void){
+
+    }
+    void __attribute__((constructor)) init1(void){
+        
+    }
+
+    void __attribute__((constructor)) init3(void){
+        
+    }
+
+    void __attribute__((constructor)) init2(void){
+        
+    }
+
+    IDA中，在exports可以找到 _init,在Ctrl+F 后找到_init_array.
+    readelf工具：
+    sdk->ndk->x.x->toolchain->x86_64-->prebuilt->windows-x86_64->bin
+    老：sdk->ndk-bundle->toolchain->x86_64-->prebuilt->windows-x86_64->bin
+
+    readelf -d x.x.so
+    确认：init函数是否存在，init_array是否存在，存在可以看到偏移，在ida中，按J
+    init
+    init_array
+    ```
+
+    ​
+
+    ​
+
+    ​
+
+    ​
+
+    ​
+
+    ​
+
+    ​
 
     ​
